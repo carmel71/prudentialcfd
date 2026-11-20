@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tes perekaman iPhone | Cerita Kita</title>
+  <link rel="stylesheet" href="css/tokens.css">
+  <style>
+    body { background: #F4FAF9; }
+    .wrap { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
+    h1 { font: 700 22px var(--font-title); margin-bottom: 6px; }
+    .sub { color: var(--grey); font-size: 15px; margin-bottom: 14px; }
+    .info { font-size: 12.5px; line-height: 1.5; color: var(--grey); background: #fff; border-radius: 14px; padding: 12px; box-shadow: 0 0 0 1px var(--line); margin-bottom: 14px; word-break: break-word; }
+    .info b { color: var(--ink); }
+    .btns { display: grid; gap: 10px; margin-bottom: 16px; }
+    .stage { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+    .stage canvas, .stage video { width: 72px; height: 128px; border-radius: 10px; background: var(--mint-2); object-fit: cover; }
+    .stage p { font: 700 14px var(--font-ui); color: var(--teal-text); }
+    .rows { display: grid; gap: 10px; }
+    .row { display: grid; grid-template-columns: 30px 1fr 64px; gap: 10px; align-items: start; background: #fff; border-radius: 14px; padding: 12px; box-shadow: 0 0 0 1px var(--line); }
+    .row .id { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--mint); font: 700 14px var(--font-title); color: var(--teal-text); }
+    .row b { display: block; font: 700 14.5px var(--font-ui); }
+    .row .st { font-size: 13.5px; margin-top: 2px; }
+    .row .st.ok { color: var(--ok); font-weight: 700; }
+    .row .st.bad { color: var(--red); font-weight: 700; }
+    .row .st.wait { color: #8A6A00; }
+    .row small { display: block; font-size: 11.5px; color: var(--grey); margin-top: 3px; word-break: break-word; }
+    .row video { width: 64px; height: 114px; border-radius: 8px; background: var(--mint-2); object-fit: cover; }
+    .row .act { grid-column: 2 / 4; display: flex; gap: 8px; flex-wrap: wrap; }
+    .row .act button, .row .act a { min-height: 36px; padding: 0 12px; border-radius: 999px; font: 700 13px var(--font-ui); background: #fff; color: var(--teal-text); box-shadow: inset 0 0 0 1.5px var(--teal); text-decoration: none; display: inline-flex; align-items: center; }
+    .row .res { grid-column: 2 / 4; font-size: 12.5px; color: var(--ink); }
+    .summary { margin-top: 16px; padding: 12px; border-radius: 12px; background: var(--ink); color: #fff; font: 700 14px/1.5 var(--font-ui); word-break: break-word; }
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Tes perekaman video di HP</h1>
+  <p class="sub">Buka halaman ini di iPhone, pertama di <b>Safari</b>, lalu di <b>Chrome</b>. Ketuk tombol 1, lalu tombol 2, tunggu sampai selesai, lalu <b>screenshot seluruh halaman</b> dan kirim ke tim.</p>
+  <div class="info" id="info"></div>
+  <div class="btns">
+    <button class="btn btn-primary btn-block" id="run1" type="button">1. Tes tanpa kamera (±25 detik)</button>
+    <button class="btn btn-secondary btn-block" id="run2" type="button">2. Tes dengan kamera & mikrofon (±10 detik)</button>
+  </div>
+  <div class="stage"><canvas id="cv" width="360" height="640"></canvas><video id="cam" muted playsinline autoplay></video><p id="now">Belum mulai.</p></div>
+  <div class="rows" id="rows"></div>
+  <div class="summary" id="summary" hidden></div>
+</main>
+<script>
+(function () {
+  const UA = navigator.userAgent;
+  const isIOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const browser = !isIOS ? "-" : /Instagram|FBAN|FBAV|Line\//.test(UA) ? "in-app" : /CriOS/.test(UA) ? "Chrome" : /FxiOS/.test(UA) ? "Firefox" : /EdgiOS/.test(UA) ? "Edge" : "Safari";
+  const osv = (UA.match(/OS (\d+)_(\d+)(?:_(\d+))?/) || []).slice(1).filter(Boolean).join(".");
+  const safv = (UA.match(/Version\/([\d.]+)/) || [])[1] || "-";
+  const sup = m => { try { return window.MediaRecorder && MediaRecorder.isTypeSupported(m); } catch (e) { return false; } };
+  const OLD_LIST = ['video/mp4;codecs="avc1.42E01F,mp4a.40.2"', "video/mp4;codecs=avc1,mp4a.40.2", "video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
+  const oldPick = OLD_LIST.find(sup) || "";
+  const $ = s => document.querySelector(s);
+  const info = $("#info");
+  info.innerHTML =
+    `<b>iOS:</b> ${osv || "-"} &nbsp; <b>Safari:</b> ${safv} &nbsp; <b>Browser:</b> ${browser}<br>` +
+    `<b>HTTPS:</b> ${window.isSecureContext ? "ya" : "TIDAK"} &nbsp; <b>MediaRecorder:</b> ${window.MediaRecorder ? "ada" : "TIDAK ADA"} &nbsp; <b>canvas.captureStream:</b> ${HTMLCanvasElement.prototype.captureStream ? "ada" : "TIDAK ADA"}<br>` +
+    `<b>navigator.share:</b> ${navigator.share ? "ada" : "tidak"} &nbsp; <b>canShare:</b> ${navigator.canShare ? "ada" : "tidak"}<br>` +
+    `<b>Format didukung:</b> ${OLD_LIST.map(m => m.replace("video/", "") + (sup(m) ? " ✓" : " ✗")).join(", ")}<br>` +
+    `<b>Pilihan kode lama:</b> ${oldPick || "-"}<br><b>Build:</b> 20 Nov 2026 tes v1<br><span style="font-size:11px">${UA.replace(/[<>&]/g, "")}</span>`;
+
+  const TESTS = [
+    { id: "A", label: "MP4 polos, tanpa suara", mime: "video/mp4", audio: "none" },
+    { id: "B", label: "Cara lama (kode sebelumnya)", mime: oldPick, audio: "webaudio", requestData: true },
+    { id: "C", label: "MP4 polos + suara Web Audio", mime: "video/mp4", audio: "webaudio" },
+    { id: "D", label: "MP4 polos + Web Audio + timeslice", mime: "video/mp4", audio: "webaudio", slice: 1000 },
+    { id: "E", label: "WebM + Web Audio", mime: "video/webm", audio: "webaudio" },
+    { id: "F", label: "Kamera + mic langsung (versi baru)", mime: "video/mp4", audio: "mic", camera: true },
+    { id: "G", label: "Kamera + mic + efek suara (mixer)", mime: "video/mp4", audio: "mic-mix", camera: true }
+  ];
+  const results = {};
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const cv = $("#cv"), ctx = cv.getContext("2d"), camEl = $("#cam");
+  let ac = null, camStream = null;
+
+  // baris UI
+  const rowsEl = $("#rows");
+  TESTS.forEach(t => {
+    const r = document.createElement("div"); r.className = "row"; r.id = "row" + t.id;
+    r.innerHTML = `<span class="id">${t.id}</span><div><b></b><div class="st wait">Belum dites</div><small></small></div><video muted playsinline controls preload="metadata"></video><div class="act" hidden></div><div class="res"></div>`;
+    r.querySelector("b").textContent = t.label;
+    rowsEl.appendChild(r);
+  });
+  function setRow(id, cls, status, detail) {
+    const r = $("#row" + id);
+    const st = r.querySelector(".st"); st.className = "st " + cls; st.textContent = status;
+    if (detail != null) r.querySelector("small").textContent = detail;
+    results[id] = cls === "ok" ? "✅" : cls === "bad" ? "❌" : "…";
+    const sm = $("#summary"); sm.hidden = false;
+    sm.textContent = `iOS ${osv || "-"} / ${browser} → ` + TESTS.map(t => `${t.id}${results[t.id] || "·"}`).join("  ");
+  }
+
+  function draw(t, src) {
+    if (src && src.readyState >= 2 && src.videoWidth) {
+      const r = Math.max(360 / src.videoWidth, 640 / src.videoHeight), w = src.videoWidth * r, h = src.videoHeight * r;
+      ctx.drawImage(src, (360 - w) / 2, (640 - h) / 2, w, h);
+    } else {
+      const g = ctx.createLinearGradient(0, 0, 0, 640); g.addColorStop(0, "#CFEFEC"); g.addColorStop(1, "#2AB9B3");
+      ctx.fillStyle = g; ctx.fillRect(0, 0, 360, 640);
+      ctx.fillStyle = "#EC1B2E"; ctx.beginPath(); ctx.arc(180 + Math.sin(t / 300) * 110, 320, 46, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = "#fff"; ctx.fillRect(20, 30, 320, 70);
+    ctx.fillStyle = "#2B3133"; ctx.font = "bold 28px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("TES " + (t / 1000).toFixed(1) + " dtk", 180, 66);
+  }
+
+  async function runOne(t) {
+    if (t.mime && !MediaRecorder.isTypeSupported(t.mime)) { setRow(t.id, "bad", "Format tidak didukung", t.mime); return; }
+    if (!t.mime) { setRow(t.id, "bad", "Tidak ada format yang didukung", ""); return; }
+    if (t.camera && !camStream) { setRow(t.id, "bad", "Kamera tidak aktif", ""); return; }
+    setRow(t.id, "wait", "Merekam 3 detik…", t.mime);
+    $("#now").textContent = `Tes ${t.id} berjalan…`;
+    const t0 = performance.now(); let raf = 0;
+    const loop = () => { raf = requestAnimationFrame(loop); draw(performance.now() - t0, t.camera ? camEl : null); };
+    loop();
+    const vs = cv.captureStream(30);
+    const tracks = [...vs.getVideoTracks()];
+    let osc = null, micNode = null;
+    const mic = camStream ? camStream.getAudioTracks()[0] : null;
+    try {
+      if (t.audio === "webaudio" || t.audio === "mic-mix") {
+        const dest = ac.createMediaStreamDestination();
+        osc = ac.createOscillator(); const g = ac.createGain(); g.gain.value = 0.03; osc.connect(g); g.connect(dest); osc.start();
+        if (t.audio === "mic-mix" && mic) { micNode = ac.createMediaStreamSource(new MediaStream([mic])); micNode.connect(dest); }
+        tracks.push(dest.stream.getAudioTracks()[0]);
+      }
+      if (t.audio === "mic" && mic) tracks.push(mic);
+    } catch (e) { setRow(t.id, "bad", "Audio gagal: " + e.name, t.mime); cancelAnimationFrame(raf); return; }
+
+    let rec, recErr = "";
+    try { rec = new MediaRecorder(new MediaStream(tracks), { mimeType: t.mime, videoBitsPerSecond: 2500000 }); }
+    catch (e) { setRow(t.id, "bad", "Recorder gagal dibuat: " + e.name, t.mime); cancelAnimationFrame(raf); return; }
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onerror = e => { recErr = (e.error && e.error.name) || "error"; };
+    const stopped = new Promise(r => (rec.onstop = r));
+    try { t.slice ? rec.start(t.slice) : rec.start(); } catch (e) { setRow(t.id, "bad", "Gagal mulai: " + e.name, t.mime); cancelAnimationFrame(raf); return; }
+    await wait(3000);
+    if (t.requestData) { try { rec.requestData(); } catch (e) {} }
+    rec.stop();
+    await Promise.race([stopped, wait(5000)]);
+    cancelAnimationFrame(raf);
+    vs.getTracks().forEach(x => x.stop());
+    if (osc) try { osc.stop(); } catch (e) {}
+    if (micNode) try { micNode.disconnect(); } catch (e) {}
+
+    const actual = rec.mimeType || "(kosong)";
+    const type = (rec.mimeType || t.mime).split(";")[0];
+    const blob = new Blob(chunks, { type });
+    const detail = `${actual} | ${(blob.size / 1024).toFixed(0)} KB | ${chunks.length} potongan${recErr ? " | error " + recErr : ""}`;
+    if (!blob.size) { setRow(t.id, "bad", "File kosong", detail); return; }
+
+    const r = $("#row" + t.id), v = r.querySelector("video"), url = URL.createObjectURL(blob);
+    setRow(t.id, "wait", "Mengecek bisa diputar…", detail);
+    const verdict = await new Promise(res => {
+      let done = false;
+      const fin = x => { if (!done) { done = true; clearTimeout(to); res(x); } };
+      const to = setTimeout(() => fin({ s: "unknown" }), 7000);
+      v.onloadedmetadata = () => fin({ s: "ok", d: v.duration });
+      v.onerror = () => fin({ s: "err", c: v.error ? v.error.code : "?" });
+      v.src = url; v.load();
+    });
+    if (verdict.s === "ok") setRow(t.id, "ok", `Bisa diputar${isFinite(verdict.d) ? " (" + verdict.d.toFixed(1) + " dtk)" : ""}`, detail);
+    else if (verdict.s === "err") setRow(t.id, "bad", "TIDAK bisa diputar (kode " + verdict.c + ")", detail);
+    else setRow(t.id, "wait", "Belum pasti: ketuk video untuk putar", detail);
+    v.addEventListener("playing", () => setRow(t.id, "ok", "Bisa diputar", null));
+    v.addEventListener("error", () => setRow(t.id, "bad", "TIDAK bisa diputar (kode " + (v.error ? v.error.code : "?") + ")", null));
+
+    // tombol uji simpan
+    const ext = type.includes("mp4") ? "mp4" : "webm";
+    const act = r.querySelector(".act"), res = r.querySelector(".res");
+    act.hidden = false; act.innerHTML = "";
+    const file = new File([blob], `tes-${t.id}.${ext}`, { type });
+    const sh = document.createElement("button"); sh.type = "button"; sh.textContent = "Tes Bagikan";
+    sh.addEventListener("click", () => {
+      let can = false; try { can = !!(navigator.canShare && navigator.canShare({ files: [file] })); } catch (e) {}
+      if (!navigator.share) { res.textContent = "Bagikan: navigator.share tidak ada"; return; }
+      res.textContent = `Bagikan: canShare=${can}, membuka…`;
+      const timer = setTimeout(() => { res.textContent += " (belum ada jawaban setelah 6 dtk)"; }, 6000);
+      try {
+        navigator.share({ files: [file] })
+          .then(() => { clearTimeout(timer); res.textContent = `Bagikan: BERHASIL (canShare=${can})`; })
+          .catch(e => { clearTimeout(timer); res.textContent = `Bagikan: gagal ${e.name} (canShare=${can})`; });
+      } catch (e) { clearTimeout(timer); res.textContent = "Bagikan: error " + e.name; }
+    });
+    const dl = document.createElement("a"); dl.href = url; dl.download = `tes-${t.id}.${ext}`; dl.textContent = "Tes Unduh";
+    dl.addEventListener("click", () => { res.textContent = "Unduh: diketuk (cek muncul dialog/ikon unduhan atau tidak)"; });
+    act.append(sh, dl);
+  }
+
+  $("#run1").addEventListener("click", async () => {
+    try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume(); } catch (e) {}
+    $("#run1").disabled = true;
+    for (const t of TESTS.filter(x => !x.camera)) await runOne(t);
+    $("#now").textContent = "Tes 1 selesai."; $("#run1").disabled = false;
+  });
+  $("#run2").addEventListener("click", async () => {
+    try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume(); } catch (e) {}
+    $("#run2").disabled = true;
+    try {
+      camStream = camStream || await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
+      camEl.srcObject = camStream; await camEl.play().catch(() => {});
+    } catch (e) { $("#now").textContent = "Kamera gagal: " + e.name; }
+    for (const t of TESTS.filter(x => x.camera)) await runOne(t);
+    if (camStream) { camStream.getTracks().forEach(x => x.stop()); camStream = null; }
+    $("#now").textContent = "Tes 2 selesai."; $("#run2").disabled = false;
+  });
+})();
+</script>
+</body>
+</html>
